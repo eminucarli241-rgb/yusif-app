@@ -17,6 +17,11 @@ jobs:
 
     - name: Android Layihəsini Arxa Fonda Yaratmaq
       run: |
+        # Gradle-i əvvəlcədən 8.4 versiyasına hazırlayırıq
+        gradle wrapper --gradle-version 8.4
+        chmod +x gradlew
+        
+        # Sonra faylları yaradırıq
         mkdir -p app/src/main/java/com/example/yusifapp
         
         cat << 'EOF' > build.gradle.kts
@@ -106,10 +111,6 @@ jobs:
             }
         }
         EOF
-        
-        # Qeyd: Burada Gradle versiyasını sabitləyirik ki, xəta verməsin
-        gradle wrapper --gradle-version 8.4
-        chmod +x gradlew
 
     - name: APK-nı Yığmaq
       run: ./gradlew assembleDebug
