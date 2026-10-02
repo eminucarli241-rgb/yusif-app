@@ -26,16 +26,15 @@ jobs:
     - name: Android Layihəsini Yaratmaq
       run: |
         mkdir -p app/src/main/java/com/example/yusifapp
-        
-        # İkon üçün ən uyğun standart qovluğu yaradırıq
         mkdir -p app/src/main/res/mipmap-xxxhdpi
         
-        # Əgər icon.png varsa kopyalayır
-        if [ -f "icon.png" ]; then cp icon.png app/src/main/res/mipmap-xxxhdpi/ic_launcher.png; fi
+        # Şəkil tam olaraq sizin yüklədiyiniz yerdən götürülür
+        if [ -f ".github/workflows/icon.png" ]; then 
+            cp .github/workflows/icon.png app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+        elif [ -f "icon.png" ]; then
+            cp icon.png app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+        fi
         
-        # Açar faylını (Keystore) birbaşa "app" qovluğunda yaradırıq ki, tapmaq asan olsun
-        keytool -genkey -v -keystore app/my-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias my-alias -dname "CN=Yusif, OU=App, O=App, L=Baku, ST=Baku, C=AZ" -storepass 12345678 -keypass 12345678
-
         cat << 'EOF' > gradle.properties
         android.useAndroidX=true
         android.enableJetifier=true
@@ -83,25 +82,10 @@ jobs:
                 versionCode = 1
                 versionName = "1.0"
             }
-            signingConfigs {
-                create("release") {
-                    storeFile = file("my-release-key.jks")
-                    storePassword = "12345678"
-                    keyAlias = "my-alias"
-                    keyPassword = "12345678"
-                }
-            }
-            buildTypes {
-                release {
-                    isMinifyEnabled = false
-                    signingConfig = signingConfigs.getByName("release")
-                }
-            }
             compileOptions {
                 sourceCompatibility = JavaVersion.VERSION_17
                 targetCompatibility = JavaVersion.VERSION_17
             }
-            # VACİB HİSSƏ: Xırda xətaların build-i dayandırmasının qarşısını alır
             lint {
                 abortOnError = false
             }
@@ -145,7 +129,10 @@ jobs:
                 webView.settings.javaScriptEnabled = true
                 webView.settings.domStorageEnabled = true
                 webView.webViewClient = WebViewClient()
+                
+                // Bura HTTPS qoyulub ki, ağ ekran xətası olmasın
                 webView.loadUrl("https://yusif.az")
+                
                 setContentView(webView)
             }
             @Deprecated("Deprecated in Java")
@@ -155,11 +142,11 @@ jobs:
         }
         EOF
 
-    - name: Tətbiqi İmzalı (Release) Rejimdə Yığmaq
-      run: gradle assembleRelease --stacktrace
+    - name: APK-nı Yığmaq
+      run: gradle assembleDebug --stacktrace
 
     - name: APK Faylını Yükləməyə Hazırlamaq
       uses: actions/upload-artifact@v4
       with:
-        name: YusifApp-Release-APK
-        path: app/build/outputs/apk/release/app-release.apk
+        name: YusifApp-APK
+        path: app/build/outputs/apk/debug/app-debug.apk
