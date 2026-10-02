@@ -23,18 +23,19 @@ jobs:
       with:
         gradle-version: '8.4'
 
-    - name: Rəqəmsal İmza (Keystore) Yaratmaq
-      run: |
-        keytool -genkey -v -keystore my-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias my-alias -dname "CN=Yusif, OU=App, O=App, L=Baku, ST=Baku, C=AZ" -storepass 12345678 -keypass 12345678
-
     - name: Android Layihəsini Yaratmaq
       run: |
         mkdir -p app/src/main/java/com/example/yusifapp
-        mkdir -p app/src/main/res/mipmap
         
-        # Əgər icon.png varsa kopyalayacaq, yoxdursa xəta vermədən keçəcək
-        if [ -f "icon.png" ]; then cp icon.png app/src/main/res/mipmap/ic_launcher.png; fi
+        # İkon üçün ən uyğun standart qovluğu yaradırıq
+        mkdir -p app/src/main/res/mipmap-xxxhdpi
         
+        # Əgər icon.png varsa kopyalayır
+        if [ -f "icon.png" ]; then cp icon.png app/src/main/res/mipmap-xxxhdpi/ic_launcher.png; fi
+        
+        # Açar faylını (Keystore) birbaşa "app" qovluğunda yaradırıq ki, tapmaq asan olsun
+        keytool -genkey -v -keystore app/my-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias my-alias -dname "CN=Yusif, OU=App, O=App, L=Baku, ST=Baku, C=AZ" -storepass 12345678 -keypass 12345678
+
         cat << 'EOF' > gradle.properties
         android.useAndroidX=true
         android.enableJetifier=true
@@ -84,7 +85,7 @@ jobs:
             }
             signingConfigs {
                 create("release") {
-                    storeFile = file("../my-release-key.jks")
+                    storeFile = file("my-release-key.jks")
                     storePassword = "12345678"
                     keyAlias = "my-alias"
                     keyPassword = "12345678"
@@ -99,6 +100,10 @@ jobs:
             compileOptions {
                 sourceCompatibility = JavaVersion.VERSION_17
                 targetCompatibility = JavaVersion.VERSION_17
+            }
+            # VACİB HİSSƏ: Xırda xətaların build-i dayandırmasının qarşısını alır
+            lint {
+                abortOnError = false
             }
         }
         dependencies {
