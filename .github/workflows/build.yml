@@ -113,7 +113,7 @@ jobs:
                 webView.settings.javaScriptEnabled = true
                 webView.settings.domStorageEnabled = true
                 webView.webViewClient = WebViewClient()
-                webView.loadUrl("http://yusif.az")
+                webView.loadUrl("https://yusif.az")
                 setContentView(webView)
             }
             @Deprecated("Deprecated in Java")
