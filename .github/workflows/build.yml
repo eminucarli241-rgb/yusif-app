@@ -26,19 +26,14 @@ jobs:
     - name: Android Layihəsini Yaratmaq
       run: |
         mkdir -p app/src/main/java/com/example/yusifapp
+        
+        # İkon üçün ən uyğun standart qovluğu yaradırıq
         mkdir -p app/src/main/res/mipmap-xxxhdpi
         
-        # Əgər icon.png varsa onu götürür, yoxdursa avtomatik ehtiyat ikon yaradır
-        if [ -f "icon.png" ]; then 
-            cp icon.png app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-        elif [ -f "Icon.png" ]; then
-            cp Icon.png app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-        else
-            # İkon tapılmasa, ImageMagick ilə standart bir mavi ikon yaradır ki, xəta verməsin
-            convert -size 512x512 xc:"#1557B0" app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-        fi
+        # Əgər icon.png varsa kopyalayır
+        if [ -f "icon.png" ]; then cp icon.png app/src/main/res/mipmap-xxxhdpi/ic_launcher.png; fi
         
-        # Açar faylını (Keystore) yaradırıq
+        # Açar faylını (Keystore) birbaşa "app" qovluğunda yaradırıq ki, tapmaq asan olsun
         keytool -genkey -v -keystore app/my-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias my-alias -dname "CN=Yusif, OU=App, O=App, L=Baku, ST=Baku, C=AZ" -storepass 12345678 -keypass 12345678
 
         cat << 'EOF' > gradle.properties
@@ -106,9 +101,9 @@ jobs:
                 sourceCompatibility = JavaVersion.VERSION_17
                 targetCompatibility = JavaVersion.VERSION_17
             }
+            # VACİB HİSSƏ: Xırda xətaların build-i dayandırmasının qarşısını alır
             lint {
                 abortOnError = false
-                checkReleaseBuilds = false
             }
         }
         dependencies {
