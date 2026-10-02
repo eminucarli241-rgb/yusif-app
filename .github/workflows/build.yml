@@ -24,6 +24,13 @@ jobs:
       run: |
         mkdir -p app/src/main/java/com/example/yusifapp
         
+        # ƏN VACİB HİSSƏ: AndroidX dəstəyini aktivləşdiririk
+        cat << 'EOF' > gradle.properties
+        android.useAndroidX=true
+        android.enableJetifier=true
+        org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+        EOF
+        
         cat << 'EOF' > settings.gradle.kts
         pluginManagement {
             repositories {
@@ -117,7 +124,7 @@ jobs:
         EOF
 
     - name: APK-nı Yığmaq
-      run: gradle assembleDebug
+      run: gradle assembleDebug --stacktrace
 
     - name: APK Faylını Yükləməyə Hazırlamaq
       uses: actions/upload-artifact@v4
