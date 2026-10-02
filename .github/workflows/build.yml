@@ -28,14 +28,12 @@ jobs:
         mkdir -p app/src/main/java/com/example/yusifapp
         mkdir -p app/src/main/res/mipmap-xxxhdpi
         
-        # İkonu düzgün yerdən götürür
         if [ -f ".github/workflows/icon.png" ]; then 
             cp .github/workflows/icon.png app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
         elif [ -f "icon.png" ]; then
             cp icon.png app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
         fi
         
-        # RƏSMİ İMZA (Keystore) yaradılır
         keytool -genkey -v -keystore app/my-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias my-alias -dname "CN=Yusif, OU=App, O=App, L=Baku, ST=Baku, C=AZ" -storepass 12345678 -keypass 12345678
         
         cat << 'EOF' > gradle.properties
@@ -119,9 +117,11 @@ jobs:
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <uses-permission android:name="android.permission.INTERNET" />
+            <!-- android:usesCleartextTraffic="true" HİSSƏSİ BURA ƏLAVƏ OLUNDU -->
             <application 
                 android:label="YusifApp" 
                 android:icon="@mipmap/ic_launcher"
+                android:usesCleartextTraffic="true" 
                 android:theme="@style/Theme.AppCompat.Light.NoActionBar">
                 <activity android:name=".MainActivity" android:exported="true">
                     <intent-filter>
@@ -138,6 +138,7 @@ jobs:
         import android.os.Bundle
         import android.webkit.WebView
         import android.webkit.WebViewClient
+        import android.webkit.WebSettings
         import androidx.appcompat.app.AppCompatActivity
 
         class MainActivity : AppCompatActivity() {
@@ -147,6 +148,10 @@ jobs:
                 webView = WebView(this)
                 webView.settings.javaScriptEnabled = true
                 webView.settings.domStorageEnabled = true
+                
+                // HTTP (Mixed Content) SƏHİFƏLƏRİNİN AÇILMASINA İCAZƏ HİSSƏSİ
+                webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                
                 webView.webViewClient = WebViewClient()
                 webView.loadUrl("https://yusif.az")
                 setContentView(webView)
