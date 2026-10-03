@@ -27,6 +27,32 @@ jobs:
       run: |
         mkdir -p app/src/main/java/com/example/yusifapp
         mkdir -p app/src/main/res/mipmap-xxxhdpi
+        mkdir -p app/src/main/assets
+        
+        # Oflayn səhifə (Keşdə də tapılmayanda göstəriləcək ekran)
+        cat << 'EOF' > app/src/main/assets/offline.html
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>İnternet yoxdur</title>
+            <style>
+                body { font-family: sans-serif; text-align: center; padding: 50px 20px; background-color: #f8f9fa; color: #333; }
+                .icon { font-size: 60px; margin-bottom: 20px; }
+                h1 { font-size: 22px; color: #d32f2f; margin-bottom: 10px; }
+                p { font-size: 16px; color: #666; margin-bottom: 30px; line-height: 1.5; }
+                button { background-color: #1a73e8; color: white; border: none; padding: 12px 30px; border-radius: 25px; font-size: 16px; cursor: pointer; font-weight: bold; }
+            </style>
+        </head>
+        <body>
+            <div class="icon">📡</div>
+            <h1>Bağlantı xətası</h1>
+            <p>Siz oflayn rejimdəsiniz və bu səhifə yaddaşda (keşdə) tapılmadı. Zəhmət olmasa interneti yandırın və yenidən yoxlayın.</p>
+            <button onclick="window.location.href='https://yusif.az'">Yenidən yoxla</button>
+        </body>
+        </html>
+        EOF
         
         if [ -f ".github/workflows/icon.png" ]; then 
             cp .github/workflows/icon.png app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
@@ -113,10 +139,12 @@ jobs:
         }
         EOF
         
+        # DİQQƏT: Şəbəkəyə nəzarət etmək üçün icazə (ACCESS_NETWORK_STATE) əlavə edildi
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <uses-permission android:name="android.permission.INTERNET" />
+            <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
             <application 
                 android:label="YusifApp" 
                 android:icon="@mipmap/ic_launcher"
@@ -134,49 +162,108 @@ jobs:
         
         cat << 'EOF' > app/src/main/java/com/example/yusifapp/MainActivity.kt
         package com.example.yusifapp
+        
+        import android.content.Context
         import android.content.Intent
+        import android.net.ConnectivityManager
+        import android.net.NetworkCapabilities
         import android.net.Uri
+        import android.os.Build
         import android.os.Bundle
         import android.webkit.WebView
         import android.webkit.WebViewClient
         import android.webkit.WebSettings
+        import android.webkit.WebResourceRequest
+        import android.webkit.WebResourceError
         import androidx.appcompat.app.AppCompatActivity
 
         class MainActivity : AppCompatActivity() {
             private lateinit var webView: WebView
+
+            // İnternetin olub-olmadığını yoxlayan funksiya
+            private fun isNetworkAvailable(): Boolean {
+                val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val network = connectivityManager.activeNetwork ?: return false
+                    val activeNetwork = connectivityManager.getNetworkCapabilities(network) ?: return false
+                    return activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                           activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                           activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+                } else {
+                    @Suppress("DEPRECATION")
+                    val networkInfo = connectivityManager.activeNetworkInfo
+                    @Suppress("DEPRECATION")
+                    return networkInfo?.isConnected ?: false
+                }
+            }
+
+            // Keş rejimini tənzimləyən funksiya
+            private fun setCacheMode() {
+                if (isNetworkAvailable()) {
+                    // İnternet varsa səhifəni yenilə (yenisini yüklə)
+                    webView.settings.cacheMode = WebSettings.LOAD_DEFAULT
+                } else {
+                    // İnternet yoxdursa yaddaşdakını (keşi) məcbur göstər
+                    webView.settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+                }
+            }
+
             override fun onCreate(savedInstanceState: Bundle?) {
                 super.onCreate(savedInstanceState)
                 webView = WebView(this)
+                
                 webView.settings.javaScriptEnabled = true
                 webView.settings.domStorageEnabled = true
+                webView.settings.databaseEnabled = true
                 webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 
-                // Linklərə nəzarət edən funksiya
+                setCacheMode() // Proqram açılanda interneti yoxlayıb keş rejimini seçir
+                
                 webView.webViewClient = object : WebViewClient() {
                     @Deprecated("Deprecated in Java")
                     override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                         if (url == null) return false
                         
-                        // Əgər link WhatsApp, Zəng, Mail və s. isə telefondakı proqramı açır
+                        // WhatsApp, Zəng, Mail linkləri
                         if (url.startsWith("whatsapp://") || url.startsWith("tel:") || 
                             url.startsWith("mailto:") || url.startsWith("intent://") || 
                             url.contains("wa.me") || url.contains("api.whatsapp.com")) {
                             try {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                                 startActivity(intent)
-                                return true // Linki xarici proqrama yönləndirdik
+                                return true
                             } catch (e: Exception) {
-                                // Əgər istifadəçidə WhatsApp yoxdursa, xəta verməməsi üçün
                                 return false
                             }
                         }
-                        return false // Adi web səhifədirsə saytın içində aç
+                        return false 
+                    }
+
+                    // Səhifə heç cür açıla bilməyəndə (nə internet var, nə də keşdə tapıldı)
+                    override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                        super.onReceivedError(view, request, error)
+                        if (request?.isForMainFrame == true) {
+                            view?.loadUrl("file:///android_asset/offline.html")
+                        }
+                    }
+
+                    @Deprecated("Deprecated in Java")
+                    override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
+                        super.onReceivedError(view, errorCode, description, failingUrl)
+                        view?.loadUrl("file:///android_asset/offline.html")
                     }
                 }
                 
                 webView.loadUrl("https://yusif.az")
                 setContentView(webView)
             }
+            
+            // İstifadəçi tətbiqdən çıxıb qayıdanda (məsələn, wifi yandırıb qayıdanda)
+            override fun onResume() {
+                super.onResume()
+                setCacheMode()
+            }
+
             @Deprecated("Deprecated in Java")
             override fun onBackPressed() {
                 if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
