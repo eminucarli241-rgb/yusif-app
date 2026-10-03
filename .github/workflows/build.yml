@@ -62,7 +62,7 @@ jobs:
             cp icon.png app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
         fi
         
-        # 2. YENİ DİZAYN FAYLI (Pull-to-refresh, Progress bar, Splash screen üçün)
+        # 2. YENİ DİZAYN FAYLI
         cat << 'EOF' > app/src/main/res/layout/activity_main.xml
         <?xml version="1.0" encoding="utf-8"?>
         <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -87,7 +87,7 @@ jobs:
                 android:layout_alignParentTop="true"
                 android:visibility="gone" />
 
-            <!-- AÇILIŞ EKRANI (Splash Screen) -->
+            <!-- AÇILIŞ EKRANI -->
             <RelativeLayout
                 android:id="@+id/splashScreen"
                 android:layout_width="match_parent"
@@ -136,18 +136,29 @@ jobs:
         include(":app")
         EOF
         
+        # ONESIGNAL KİTABXANASININ ƏLAVƏ EDİLMƏSİ
         cat << 'EOF' > build.gradle.kts
+        buildscript {
+            repositories {
+                google()
+                mavenCentral()
+                gradlePluginPortal()
+            }
+            dependencies {
+                classpath("gradle.plugin.com.onesignal:onesignal-gradle-plugin:0.14.0")
+            }
+        }
         plugins {
             id("com.android.application") version "8.2.0" apply false
             id("org.jetbrains.kotlin.android") version "1.9.20" apply false
         }
         EOF
         
-        # 3. YENİ KİTABXANALAR ƏLAVƏ EDİLDİ (SwipeRefreshLayout üçün)
         cat << 'EOF' > app/build.gradle.kts
         plugins {
             id("com.android.application")
             id("org.jetbrains.kotlin.android")
+            id("com.onesignal.androidsdk.onesignal-gradle-plugin")
         }
         android {
             namespace = "com.example.yusifapp"
@@ -187,10 +198,10 @@ jobs:
             implementation("androidx.core:core-ktx:1.12.0")
             implementation("androidx.appcompat:appcompat:1.6.1")
             implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+            implementation("com.onesignal:OneSignal:4.8.7")
         }
         EOF
         
-        # 4. YENİ İCAZƏLƏR ƏLAVƏ EDİLDİ (Yaddaşa yazmaq - Endirmələr üçün)
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -212,7 +223,7 @@ jobs:
         </manifest>
         EOF
         
-        # 5. ƏSAS MƏNTİQ FAYLI (Tam yeniləndi)
+        # ƏSAS MƏNTİQ FAYLI (Tam yeniləndi)
         cat << 'EOF' > app/src/main/java/com/example/yusifapp/MainActivity.kt
         package com.example.yusifapp
         
@@ -236,6 +247,7 @@ jobs:
         import androidx.activity.result.contract.ActivityResultContracts
         import androidx.appcompat.app.AppCompatActivity
         import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        import com.onesignal.OneSignal // YENİ: OneSignal kitabxanası
 
         class MainActivity : AppCompatActivity() {
             private lateinit var webView: WebView
@@ -243,6 +255,9 @@ jobs:
             private lateinit var progressBar: ProgressBar
             private lateinit var splashScreen: RelativeLayout
             private var uploadMessage: ValueCallback<Array<Uri>>? = null
+
+            // Sizin App ID-niz bura inteqrasiya olundu
+            private val ONESIGNAL_APP_ID = "ad03e31b-a77e-44f6-8830-c84f5ca8dfeb"
 
             // FAYL SEÇİMİ ÜÇÜN
             private val fileChooserLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -280,7 +295,14 @@ jobs:
 
             override fun onCreate(savedInstanceState: Bundle?) {
                 super.onCreate(savedInstanceState)
-                setContentView(R.layout.activity_main) // YENİ DİZAYNI İSTİFADƏ EDİRİK
+                
+                // BİLDİRİŞ SİSTEMİNİN QURAŞDIRILMASI
+                OneSignal.setLogLevel(OneSignal.LOG_LEVEL.VERBOSE, OneSignal.LOG_LEVEL.NONE)
+                OneSignal.initWithContext(this)
+                OneSignal.setAppId(ONESIGNAL_APP_ID)
+                OneSignal.promptForPushNotifications() // İstifadəçidən icazə istəyir
+                
+                setContentView(R.layout.activity_main) 
                 
                 webView = findViewById(R.id.webView)
                 swipeRefresh = findViewById(R.id.swipeRefresh)
@@ -294,7 +316,6 @@ jobs:
                 
                 setCacheMode() 
 
-                // YUXARIDAN AŞAĞI ÇƏKİB YENİLƏMƏK
                 swipeRefresh.setOnRefreshListener {
                     if (isNetworkAvailable()) {
                         webView.reload()
@@ -304,7 +325,6 @@ jobs:
                     }
                 }
 
-                // FAYL ENDİRMƏ (DOWNLOAD) DƏSTƏYİ
                 webView.setDownloadListener { url, userAgent, contentDisposition, mimetype, _ ->
                     val request = DownloadManager.Request(Uri.parse(url))
                     request.setMimeType(mimetype)
@@ -320,20 +340,18 @@ jobs:
                     Toast.makeText(this, "Endirmə başladı...", Toast.LENGTH_LONG).show()
                 }
 
-                // YÜKLƏNMƏ XƏTTİ VƏ AÇILIŞ EKRANI
                 webView.webChromeClient = object : WebChromeClient() {
                     override fun onProgressChanged(view: WebView?, newProgress: Int) {
                         progressBar.progress = newProgress
                         if (newProgress == 100) {
                             progressBar.visibility = View.GONE
                             swipeRefresh.isRefreshing = false
-                            splashScreen.visibility = View.GONE // Tam yüklənəndə Splash-i gizlət
+                            splashScreen.visibility = View.GONE 
                         } else {
                             progressBar.visibility = View.VISIBLE
                         }
                     }
 
-                    // FAYL YÜKLƏMƏK (UPLOAD) ÜÇÜN
                     override fun onShowFileChooser(webView: WebView?, filePathCallback: ValueCallback<Array<Uri>>?, fileChooserParams: FileChooserParams?): Boolean {
                         uploadMessage = filePathCallback
                         try {
@@ -392,7 +410,6 @@ jobs:
                     }
                 }
                 
-                // ÇIXIŞ ÜÇÜN TƏSDİQ PƏNCƏRƏSİ (Geri düyməsi məntiqi)
                 onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
                     override fun handleOnBackPressed() {
                         if (webView.canGoBack()) {
