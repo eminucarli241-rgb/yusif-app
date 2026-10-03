@@ -29,7 +29,6 @@ jobs:
         mkdir -p app/src/main/res/mipmap-xxxhdpi
         mkdir -p app/src/main/assets
         
-        # Oflayn səhifə (Keşdə də tapılmayanda göstəriləcək ekran)
         cat << 'EOF' > app/src/main/assets/offline.html
         <!DOCTYPE html>
         <html>
@@ -139,7 +138,6 @@ jobs:
         }
         EOF
         
-        # DİQQƏT: Şəbəkəyə nəzarət etmək üçün icazə (ACCESS_NETWORK_STATE) əlavə edildi
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -165,6 +163,7 @@ jobs:
         
         import android.content.Context
         import android.content.Intent
+        import android.graphics.Bitmap
         import android.net.ConnectivityManager
         import android.net.NetworkCapabilities
         import android.net.Uri
@@ -180,7 +179,6 @@ jobs:
         class MainActivity : AppCompatActivity() {
             private lateinit var webView: WebView
 
-            // İnternetin olub-olmadığını yoxlayan funksiya
             private fun isNetworkAvailable(): Boolean {
                 val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -197,13 +195,10 @@ jobs:
                 }
             }
 
-            // Keş rejimini tənzimləyən funksiya
             private fun setCacheMode() {
                 if (isNetworkAvailable()) {
-                    // İnternet varsa səhifəni yenilə (yenisini yüklə)
                     webView.settings.cacheMode = WebSettings.LOAD_DEFAULT
                 } else {
-                    // İnternet yoxdursa yaddaşdakını (keşi) məcbur göstər
                     webView.settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
                 }
             }
@@ -217,14 +212,19 @@ jobs:
                 webView.settings.databaseEnabled = true
                 webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 
-                setCacheMode() // Proqram açılanda interneti yoxlayıb keş rejimini seçir
+                setCacheMode() 
                 
                 webView.webViewClient = object : WebViewClient() {
+                    
+                    override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                        super.onPageStarted(view, url, favicon)
+                        setCacheMode() // Hər səhifəyə keçəndə interneti yenidən yoxla
+                    }
+
                     @Deprecated("Deprecated in Java")
                     override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                         if (url == null) return false
                         
-                        // WhatsApp, Zəng, Mail linkləri
                         if (url.startsWith("whatsapp://") || url.startsWith("tel:") || 
                             url.startsWith("mailto:") || url.startsWith("intent://") || 
                             url.contains("wa.me") || url.contains("api.whatsapp.com")) {
@@ -239,18 +239,19 @@ jobs:
                         return false 
                     }
 
-                    // Səhifə heç cür açıla bilməyəndə (nə internet var, nə də keşdə tapıldı)
                     override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                        super.onReceivedError(view, request, error)
                         if (request?.isForMainFrame == true) {
-                            view?.loadUrl("file:///android_asset/offline.html")
+                            view?.stopLoading() // Default android xətasını dərhal dayandır!
+                            view?.loadUrl("file:///android_asset/offline.html") // Oflayn səhifəni aç
                         }
+                        super.onReceivedError(view, request, error)
                     }
 
                     @Deprecated("Deprecated in Java")
                     override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
-                        super.onReceivedError(view, errorCode, description, failingUrl)
+                        view?.stopLoading() // Köhnə androidlərdə xətanı dayandır
                         view?.loadUrl("file:///android_asset/offline.html")
+                        super.onReceivedError(view, errorCode, description, failingUrl)
                     }
                 }
                 
@@ -258,7 +259,6 @@ jobs:
                 setContentView(webView)
             }
             
-            // İstifadəçi tətbiqdən çıxıb qayıdanda (məsələn, wifi yandırıb qayıdanda)
             override fun onResume() {
                 super.onResume()
                 setCacheMode()
