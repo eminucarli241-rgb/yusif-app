@@ -223,7 +223,7 @@ jobs:
         </manifest>
         EOF
         
-        # ƏSAS MƏNTİQ FAYLI (Tam yeniləndi)
+        # ƏSAS MƏNTİQ FAYLI (Tam yeniləndi - Facebook/Google Fix)
         cat << 'EOF' > app/src/main/java/com/example/yusifapp/MainActivity.kt
         package com.example.yusifapp
         
@@ -238,6 +238,7 @@ jobs:
         import android.os.Build
         import android.os.Bundle
         import android.os.Environment
+        import android.os.Message
         import android.view.View
         import android.webkit.*
         import android.widget.ProgressBar
@@ -247,7 +248,7 @@ jobs:
         import androidx.activity.result.contract.ActivityResultContracts
         import androidx.appcompat.app.AppCompatActivity
         import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-        import com.onesignal.OneSignal // YENİ: OneSignal kitabxanası
+        import com.onesignal.OneSignal 
 
         class MainActivity : AppCompatActivity() {
             private lateinit var webView: WebView
@@ -256,10 +257,8 @@ jobs:
             private lateinit var splashScreen: RelativeLayout
             private var uploadMessage: ValueCallback<Array<Uri>>? = null
 
-            // Sizin App ID-niz bura inteqrasiya olundu
             private val ONESIGNAL_APP_ID = "ad03e31b-a77e-44f6-8830-c84f5ca8dfeb"
 
-            // FAYL SEÇİMİ ÜÇÜN
             private val fileChooserLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
                 if (result.resultCode == RESULT_OK) {
                     uploadMessage?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data))
@@ -296,11 +295,10 @@ jobs:
             override fun onCreate(savedInstanceState: Bundle?) {
                 super.onCreate(savedInstanceState)
                 
-                // BİLDİRİŞ SİSTEMİNİN QURAŞDIRILMASI
                 OneSignal.setLogLevel(OneSignal.LOG_LEVEL.VERBOSE, OneSignal.LOG_LEVEL.NONE)
                 OneSignal.initWithContext(this)
                 OneSignal.setAppId(ONESIGNAL_APP_ID)
-                OneSignal.promptForPushNotifications() // İstifadəçidən icazə istəyir
+                OneSignal.promptForPushNotifications() 
                 
                 setContentView(R.layout.activity_main) 
                 
@@ -313,6 +311,12 @@ jobs:
                 webView.settings.domStorageEnabled = true
                 webView.settings.allowFileAccess = true
                 webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                
+                // YENİ: Facebook və Google üçün icazələr
+                webView.settings.setSupportMultipleWindows(true)
+                webView.settings.javaScriptCanOpenWindowsAutomatically = true
+                val userAgent = webView.settings.userAgentString
+                webView.settings.userAgentString = userAgent.replace("; wv", "")
                 
                 setCacheMode() 
 
@@ -341,6 +345,26 @@ jobs:
                 }
 
                 webView.webChromeClient = object : WebChromeClient() {
+                    
+                    // YENİ: Pəncərə açmaq üçün icazə (Facebook/Google Popup)
+                    override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?): Boolean {
+                        val newWebView = WebView(this@MainActivity)
+                        val transport = resultMsg?.obj as WebView.WebViewTransport
+                        transport.webView = newWebView
+                        resultMsg.sendToTarget()
+
+                        newWebView.webViewClient = object : WebViewClient() {
+                            @Deprecated("Deprecated in Java")
+                            override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                                if (url != null) {
+                                    webView.loadUrl(url)
+                                }
+                                return true
+                            }
+                        }
+                        return true
+                    }
+
                     override fun onProgressChanged(view: WebView?, newProgress: Int) {
                         progressBar.progress = newProgress
                         if (newProgress == 100) {
