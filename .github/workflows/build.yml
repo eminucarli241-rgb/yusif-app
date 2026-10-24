@@ -30,7 +30,6 @@ jobs:
         mkdir -p app/src/main/res/layout
         mkdir -p app/src/main/assets
         
-        # 1. OFLAYN SƏHİFƏ
         cat << 'EOF' > app/src/main/assets/offline.html
         <!DOCTYPE html>
         <html>
@@ -55,14 +54,12 @@ jobs:
         </html>
         EOF
         
-        # İKONUN KOPYALANMASI
         if [ -f ".github/workflows/icon.png" ]; then 
             cp .github/workflows/icon.png app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
         elif [ -f "icon.png" ]; then
             cp icon.png app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
         fi
         
-        # 2. YENİ DİZAYN FAYLI
         cat << 'EOF' > app/src/main/res/layout/activity_main.xml
         <?xml version="1.0" encoding="utf-8"?>
         <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -87,7 +84,6 @@ jobs:
                 android:layout_alignParentTop="true"
                 android:visibility="gone" />
 
-            <!-- AÇILIŞ EKRANI -->
             <RelativeLayout
                 android:id="@+id/splashScreen"
                 android:layout_width="match_parent"
@@ -136,7 +132,6 @@ jobs:
         include(":app")
         EOF
         
-        # ONESIGNAL KİTABXANASININ ƏLAVƏ EDİLMƏSİ
         cat << 'EOF' > build.gradle.kts
         buildscript {
             repositories {
@@ -223,7 +218,6 @@ jobs:
         </manifest>
         EOF
         
-        # ƏSAS MƏNTİQ FAYLI (Facebook və naməlum link xətası həll edildi)
         cat << 'EOF' > app/src/main/java/com/example/yusifapp/MainActivity.kt
         package com.example.yusifapp
         
@@ -291,6 +285,34 @@ jobs:
                     webView.settings.cacheMode = WebSettings.LOAD_DEFAULT
                 } else {
                     webView.settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+                }
+            }
+            
+            // XÜSUSİ: Bütün kənar linkləri (WhatsApp, Facebook, Telefon və s.) idarə edən mərkəzi funksiya
+            private fun handleExternalUrl(url: String?): Boolean {
+                if (url == null) return false
+                if (url.startsWith("http://") || url.startsWith("https://")) {
+                    return false // Normal linkləri WebView-un özünə buraxır
+                }
+                try {
+                    if (url.startsWith("intent://")) {
+                        val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+                        val fallbackUrl = intent.getStringExtra("browser_fallback_url")
+                        if (intent.resolveActivity(packageManager) != null) {
+                            startActivity(intent)
+                            return true
+                        } else if (fallbackUrl != null) {
+                            webView.loadUrl(fallbackUrl)
+                            return true
+                        }
+                        return true
+                    }
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    startActivity(intent)
+                    return true
+                } catch (e: Exception) {
+                    // Tətbiq (məs: WhatsApp) telefonda yoxdursa, xəta verməsin deyə true qaytarır
+                    return true 
                 }
             }
 
@@ -371,10 +393,13 @@ jobs:
 
                         newWebView.webViewClient = object : WebViewClient() {
                             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                                // Pop-up pəncərədə açılan xüsusi linkləri yoxlayır
+                                if (handleExternalUrl(request?.url?.toString())) return true
                                 return false 
                             }
                             @Deprecated("Deprecated in Java")
                             override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                                if (handleExternalUrl(url)) return true
                                 return false
                             }
                         }
@@ -416,44 +441,13 @@ jobs:
                     }
 
                     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                        return handleUrl(view, request?.url?.toString())
+                        // Əsas səhifədəki xüsusi linkləri yoxlayır
+                        return handleExternalUrl(request?.url?.toString())
                     }
 
                     @Deprecated("Deprecated in Java")
                     override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                        return handleUrl(view, url)
-                    }
-                    
-                    // YENİLƏNİB: Veb ünvanı olmayan linklərin xəta verməsinin qarşısını alır
-                    private fun handleUrl(view: WebView?, url: String?): Boolean {
-                        if (url == null) return false
-                        
-                        if (url.startsWith("http://") || url.startsWith("https://")) {
-                            return false 
-                        }
-                        
-                        try {
-                            if (url.startsWith("intent://")) {
-                                val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
-                                val fallbackUrl = intent.getStringExtra("browser_fallback_url")
-                                if (intent.resolveActivity(packageManager) != null) {
-                                    startActivity(intent)
-                                    return true
-                                } else if (fallbackUrl != null) {
-                                    view?.loadUrl(fallbackUrl)
-                                    return true
-                                }
-                                return true
-                            }
-                            
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                            if (intent.resolveActivity(packageManager) != null) {
-                                startActivity(intent)
-                            }
-                            return true
-                        } catch (e: Exception) {
-                            return true // Xətanın ekrana çıxmasını əngəlləyir
-                        }
+                        return handleExternalUrl(url)
                     }
 
                     override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
