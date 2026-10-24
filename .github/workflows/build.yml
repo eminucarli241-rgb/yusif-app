@@ -223,7 +223,7 @@ jobs:
         </manifest>
         EOF
         
-        # ƏSAS MƏNTİQ FAYLI (İkili Doğrulama və Pop-up idarəetməsi əlavə edildi)
+        # ƏSAS MƏNTİQ FAYLI (Facebook və naməlum link xətası həll edildi)
         cat << 'EOF' > app/src/main/java/com/example/yusifapp/MainActivity.kt
         package com.example.yusifapp
         
@@ -241,7 +241,6 @@ jobs:
         import android.os.Environment
         import android.os.Message
         import android.view.View
-        import android.view.ViewGroup
         import android.webkit.*
         import android.widget.ProgressBar
         import android.widget.RelativeLayout
@@ -351,7 +350,6 @@ jobs:
 
                 webView.webChromeClient = object : WebChromeClient() {
                     
-                    // Google İkili Doğrulama Pop-up pəncərəsi
                     override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?): Boolean {
                         val newWebView = WebView(this@MainActivity)
                         newWebView.settings.javaScriptEnabled = true
@@ -367,7 +365,7 @@ jobs:
 
                         newWebView.webChromeClient = object : WebChromeClient() {
                             override fun onCloseWindow(window: WebView?) {
-                                dialog.dismiss() // Doğrulama bitəndə pəncərəni avtomatik bağlayır
+                                dialog.dismiss()
                             }
                         }
 
@@ -426,6 +424,7 @@ jobs:
                         return handleUrl(view, url)
                     }
                     
+                    // YENİLƏNİB: Veb ünvanı olmayan linklərin xəta verməsinin qarşısını alır
                     private fun handleUrl(view: WebView?, url: String?): Boolean {
                         if (url == null) return false
                         
@@ -434,22 +433,26 @@ jobs:
                         }
                         
                         try {
-                            val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
-                            val fallbackUrl = intent.getStringExtra("browser_fallback_url")
-                            
-                            if (intent.resolveActivity(packageManager) != null) {
-                                startActivity(intent)
-                                return true
-                            } else if (fallbackUrl != null) {
-                                view?.loadUrl(fallbackUrl)
+                            if (url.startsWith("intent://")) {
+                                val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+                                val fallbackUrl = intent.getStringExtra("browser_fallback_url")
+                                if (intent.resolveActivity(packageManager) != null) {
+                                    startActivity(intent)
+                                    return true
+                                } else if (fallbackUrl != null) {
+                                    view?.loadUrl(fallbackUrl)
+                                    return true
+                                }
                                 return true
                             }
                             
-                            val fallbackIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                            startActivity(fallbackIntent)
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            if (intent.resolveActivity(packageManager) != null) {
+                                startActivity(intent)
+                            }
                             return true
                         } catch (e: Exception) {
-                            return false
+                            return true // Xətanın ekrana çıxmasını əngəlləyir
                         }
                     }
 
