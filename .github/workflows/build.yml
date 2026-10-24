@@ -105,7 +105,12 @@ jobs:
         </RelativeLayout>
         EOF
         
-        keytool -genkey -v -keystore app/my-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias my-alias -dname "CN=Yusif, OU=App, O=App, L=Baku, ST=Baku, C=AZ" -storepass 12345678 -keypass 12345678
+        # YENİLƏNDİ: Sabit İmza (Keystore) yoxlaması
+        if [ -f "my-release-key.jks" ]; then
+            cp my-release-key.jks app/my-release-key.jks
+        else
+            keytool -genkey -v -keystore app/my-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias my-alias -dname "CN=Yusif, OU=App, O=App, L=Baku, ST=Baku, C=AZ" -storepass 12345678 -keypass 12345678
+        fi
         
         cat << 'EOF' > gradle.properties
         android.useAndroidX=true
@@ -149,6 +154,7 @@ jobs:
         }
         EOF
         
+        # YENİLƏNDİ: Versiya Nömrəsi avtomatik olaraq GitHub Run Number-a bağlandı
         cat << 'EOF' > app/build.gradle.kts
         plugins {
             id("com.android.application")
@@ -162,8 +168,8 @@ jobs:
                 applicationId = "com.example.yusifapp"
                 minSdk = 24
                 targetSdk = 34
-                versionCode = 1
-                versionName = "1.0"
+                versionCode = ${{ github.run_number }}
+                versionName = "1.0.${{ github.run_number }}"
             }
             signingConfigs {
                 create("release") {
@@ -207,6 +213,7 @@ jobs:
                 android:label="YusifApp" 
                 android:icon="@mipmap/ic_launcher"
                 android:usesCleartextTraffic="true" 
+                android:hardwareAccelerated="true"
                 android:theme="@style/Theme.AppCompat.Light.NoActionBar">
                 <activity android:name=".MainActivity" android:exported="true">
                     <intent-filter>
@@ -251,9 +258,9 @@ jobs:
             private lateinit var progressBar: ProgressBar
             private lateinit var splashScreen: RelativeLayout
             private var uploadMessage: ValueCallback<Array<Uri>>? = null
+            private lateinit var optimizedUserAgent: String
 
             private val ONESIGNAL_APP_ID = "ad03e31b-a77e-44f6-8830-c84f5ca8dfeb"
-            private val CHROME_USER_AGENT = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
 
             private val fileChooserLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
                 if (result.resultCode == RESULT_OK) {
@@ -288,11 +295,10 @@ jobs:
                 }
             }
             
-            // XÜSUSİ: Bütün kənar linkləri (WhatsApp, Facebook, Telefon və s.) idarə edən mərkəzi funksiya
             private fun handleExternalUrl(url: String?): Boolean {
                 if (url == null) return false
                 if (url.startsWith("http://") || url.startsWith("https://")) {
-                    return false // Normal linkləri WebView-un özünə buraxır
+                    return false 
                 }
                 try {
                     if (url.startsWith("intent://")) {
@@ -311,7 +317,6 @@ jobs:
                     startActivity(intent)
                     return true
                 } catch (e: Exception) {
-                    // Tətbiq (məs: WhatsApp) telefonda yoxdursa, xəta verməsin deyə true qaytarır
                     return true 
                 }
             }
@@ -331,6 +336,12 @@ jobs:
                 progressBar = findViewById(R.id.progressBar)
                 splashScreen = findViewById(R.id.splashScreen)
                 
+                webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                webView.settings.loadsImagesAutomatically = true
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_BOUND, true)
+                }
+                
                 val cookieManager = CookieManager.getInstance()
                 cookieManager.setAcceptCookie(true)
                 cookieManager.setAcceptThirdPartyCookies(webView, true)
@@ -342,7 +353,10 @@ jobs:
                 
                 webView.settings.setSupportMultipleWindows(true)
                 webView.settings.javaScriptCanOpenWindowsAutomatically = true
-                webView.settings.userAgentString = CHROME_USER_AGENT
+                
+                val defaultAgent = webView.settings.userAgentString
+                optimizedUserAgent = defaultAgent.replace("; wv", "")
+                webView.settings.userAgentString = optimizedUserAgent
                 
                 setCacheMode() 
 
@@ -374,8 +388,9 @@ jobs:
                     
                     override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?): Boolean {
                         val newWebView = WebView(this@MainActivity)
+                        newWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
                         newWebView.settings.javaScriptEnabled = true
-                        newWebView.settings.userAgentString = CHROME_USER_AGENT
+                        newWebView.settings.userAgentString = optimizedUserAgent
                         newWebView.settings.domStorageEnabled = true
                         newWebView.settings.setSupportMultipleWindows(true)
                         
@@ -393,7 +408,6 @@ jobs:
 
                         newWebView.webViewClient = object : WebViewClient() {
                             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                                // Pop-up pəncərədə açılan xüsusi linkləri yoxlayır
                                 if (handleExternalUrl(request?.url?.toString())) return true
                                 return false 
                             }
@@ -441,7 +455,6 @@ jobs:
                     }
 
                     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                        // Əsas səhifədəki xüsusi linkləri yoxlayır
                         return handleExternalUrl(request?.url?.toString())
                     }
 
@@ -498,8 +511,11 @@ jobs:
     - name: Tətbiqi İmzalı (Release) Rejimdə Yığmaq
       run: gradle assembleRelease --stacktrace
 
-    - name: APK Faylını Yükləməyə Hazırlamaq
+    # YENİLƏNDİ: APK ilə bərabər Keystore faylı da saxlanılır
+    - name: APK və Keystore Faylını Yükləməyə Hazırlamaq
       uses: actions/upload-artifact@v4
       with:
-        name: YusifApp-Release-APK
-        path: app/build/outputs/apk/release/app-release.apk
+        name: YusifApp-Release-Files
+        path: |
+          app/build/outputs/apk/release/app-release.apk
+          app/my-release-key.jks
