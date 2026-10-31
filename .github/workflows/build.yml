@@ -228,6 +228,10 @@ jobs:
         cat << 'EOF' > app/src/main/java/com/example/yusifapp/MainActivity.kt
         package com.example.yusifapp
         
+        import android.Manifest
+        import android.content.pm.PackageManager
+        import androidx.core.app.ActivityCompat
+        import androidx.core.content.ContextCompat
         import android.app.AlertDialog
         import android.app.Dialog
         import android.app.DownloadManager
@@ -261,6 +265,7 @@ jobs:
             private lateinit var optimizedUserAgent: String
 
             private val ONESIGNAL_APP_ID = "ad03e31b-a77e-44f6-8830-c84f5ca8dfeb"
+            private val LOCATION_PERMISSION_REQUEST_CODE = 1001
 
             private val fileChooserLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
                 if (result.resultCode == RESULT_OK) {
@@ -269,6 +274,12 @@ jobs:
                     uploadMessage?.onReceiveValue(null)
                 }
                 uploadMessage = null
+            }
+
+            private fun checkLocationPermission() {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
+                }
             }
 
             private fun isNetworkAvailable(): Boolean {
@@ -324,6 +335,8 @@ jobs:
             override fun onCreate(savedInstanceState: Bundle?) {
                 super.onCreate(savedInstanceState)
                 
+                checkLocationPermission() // Proqram açılanda məkan icazəsini istəyir
+                
                 OneSignal.setLogLevel(OneSignal.LOG_LEVEL.VERBOSE, OneSignal.LOG_LEVEL.NONE)
                 OneSignal.initWithContext(this)
                 OneSignal.setAppId(ONESIGNAL_APP_ID)
@@ -351,7 +364,7 @@ jobs:
                 webView.settings.allowFileAccess = true
                 webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 
-                // TAM DÜZƏLDİLDİ: = true əvəzinə (true) funksiyası çağırılır.
+                // Məkan aktiv edilir
                 webView.settings.setGeolocationEnabled(true)
                 
                 webView.settings.setSupportMultipleWindows(true)
