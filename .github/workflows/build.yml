@@ -351,8 +351,8 @@ jobs:
                 webView.settings.allowFileAccess = true
                 webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 
-                // DÜZƏLDİ: Kotlin sintaksisinə uyğun olaraq isGeolocationEnabled istifadə olundu
-                webView.settings.isGeolocationEnabled = true
+                // TAM DÜZƏLDİLDİ: = true əvəzinə (true) funksiyası çağırılır.
+                webView.settings.setGeolocationEnabled(true)
                 
                 webView.settings.setSupportMultipleWindows(true)
                 webView.settings.javaScriptCanOpenWindowsAutomatically = true
