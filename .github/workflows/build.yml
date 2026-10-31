@@ -105,7 +105,6 @@ jobs:
         </RelativeLayout>
         EOF
         
-        # YENİLƏNDİ: Sabit İmza (Keystore) yoxlaması
         if [ -f "my-release-key.jks" ]; then
             cp my-release-key.jks app/my-release-key.jks
         else
@@ -154,7 +153,6 @@ jobs:
         }
         EOF
         
-        # YENİLƏNDİ: Versiya Nömrəsi avtomatik olaraq GitHub Run Number-a bağlandı
         cat << 'EOF' > app/build.gradle.kts
         plugins {
             id("com.android.application")
@@ -203,11 +201,14 @@ jobs:
         }
         EOF
         
+        # YENİLƏNDİ: AndroidManifest.xml faylına GPS (Məkan) icazələri əlavə olundu
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <uses-permission android:name="android.permission.INTERNET" />
             <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+            <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+            <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
             <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
             <application 
                 android:label="YusifApp" 
@@ -225,6 +226,7 @@ jobs:
         </manifest>
         EOF
         
+        # YENİLƏNDİ: MainActivity.kt faylına setGeolocationEnabled və onGeolocationPermissionsShowPrompt əlavə olundu
         cat << 'EOF' > app/src/main/java/com/example/yusifapp/MainActivity.kt
         package com.example.yusifapp
         
@@ -351,6 +353,9 @@ jobs:
                 webView.settings.allowFileAccess = true
                 webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 
+                // Məkan (GPS) dəstəyi aktivləşdirildi
+                webView.settings.setGeolocationEnabled = true
+                
                 webView.settings.setSupportMultipleWindows(true)
                 webView.settings.javaScriptCanOpenWindowsAutomatically = true
                 
@@ -386,6 +391,11 @@ jobs:
 
                 webView.webChromeClient = object : WebChromeClient() {
                     
+                    // Saytdan gələn GPS məkan icazəsini avtomatik təsdiqləyirik
+                    override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) {
+                        callback.invoke(origin, true, false)
+                    }
+
                     override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?): Boolean {
                         val newWebView = WebView(this@MainActivity)
                         newWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
@@ -403,6 +413,9 @@ jobs:
                         newWebView.webChromeClient = object : WebChromeClient() {
                             override fun onCloseWindow(window: WebView?) {
                                 dialog.dismiss()
+                            }
+                            override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) {
+                                callback.invoke(origin, true, false)
                             }
                         }
 
@@ -511,7 +524,6 @@ jobs:
     - name: Tətbiqi İmzalı (Release) Rejimdə Yığmaq
       run: gradle assembleRelease --stacktrace
 
-    # YENİLƏNDİ: APK ilə bərabər Keystore faylı da saxlanılır
     - name: APK və Keystore Faylını Yükləməyə Hazırlamaq
       uses: actions/upload-artifact@v4
       with:
