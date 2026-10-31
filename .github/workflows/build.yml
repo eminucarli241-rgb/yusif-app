@@ -25,7 +25,6 @@ jobs:
 
     - name: Android Layihəsini Yaratmaq və İmzalamaq
       run: |
-        # DƏYİŞDİRİLDİ: com/example/yusifapp əvəzinə az/yusif/app
         mkdir -p app/src/main/java/az/yusif/app
         mkdir -p app/src/main/res/mipmap-xxxhdpi
         mkdir -p app/src/main/res/layout
@@ -161,7 +160,6 @@ jobs:
             id("com.onesignal.androidsdk.onesignal-gradle-plugin")
         }
         android {
-            # DƏYİŞDİRİLDİ: Paket adı rəsmiləşdirildi
             namespace = "az.yusif.app"
             compileSdk = 34
             defaultConfig {
@@ -227,7 +225,6 @@ jobs:
         </manifest>
         EOF
         
-        # DƏYİŞDİRİLDİ: Qovluq və Paket adı uyunlaşdırıldı
         cat << 'EOF' > app/src/main/java/az/yusif/app/MainActivity.kt
         package az.yusif.app
         
