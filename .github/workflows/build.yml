@@ -201,7 +201,6 @@ jobs:
         }
         EOF
         
-        # YENİLƏNDİ: AndroidManifest.xml faylına GPS (Məkan) icazələri əlavə olundu
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -226,7 +225,6 @@ jobs:
         </manifest>
         EOF
         
-        # YENİLƏNDİ: MainActivity.kt faylına setGeolocationEnabled və onGeolocationPermissionsShowPrompt əlavə olundu
         cat << 'EOF' > app/src/main/java/com/example/yusifapp/MainActivity.kt
         package com.example.yusifapp
         
@@ -353,8 +351,8 @@ jobs:
                 webView.settings.allowFileAccess = true
                 webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 
-                // Məkan (GPS) dəstəyi aktivləşdirildi
-                webView.settings.setGeolocationEnabled = true
+                // DÜZƏLDİ: Kotlin sintaksisinə uyğun olaraq isGeolocationEnabled istifadə olundu
+                webView.settings.isGeolocationEnabled = true
                 
                 webView.settings.setSupportMultipleWindows(true)
                 webView.settings.javaScriptCanOpenWindowsAutomatically = true
@@ -391,7 +389,6 @@ jobs:
 
                 webView.webChromeClient = object : WebChromeClient() {
                     
-                    // Saytdan gələn GPS məkan icazəsini avtomatik təsdiqləyirik
                     override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) {
                         callback.invoke(origin, true, false)
                     }
