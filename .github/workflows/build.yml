@@ -25,7 +25,8 @@ jobs:
 
     - name: Android Layihəsini Yaratmaq və İmzalamaq
       run: |
-        mkdir -p app/src/main/java/com/example/yusifapp
+        # DƏYİŞDİRİLDİ: com/example/yusifapp əvəzinə az/yusif/app
+        mkdir -p app/src/main/java/az/yusif/app
         mkdir -p app/src/main/res/mipmap-xxxhdpi
         mkdir -p app/src/main/res/layout
         mkdir -p app/src/main/assets
@@ -160,10 +161,11 @@ jobs:
             id("com.onesignal.androidsdk.onesignal-gradle-plugin")
         }
         android {
-            namespace = "com.example.yusifapp"
+            # DƏYİŞDİRİLDİ: Paket adı rəsmiləşdirildi
+            namespace = "az.yusif.app"
             compileSdk = 34
             defaultConfig {
-                applicationId = "com.example.yusifapp"
+                applicationId = "az.yusif.app"
                 minSdk = 24
                 targetSdk = 34
                 versionCode = ${{ github.run_number }}
@@ -225,8 +227,9 @@ jobs:
         </manifest>
         EOF
         
-        cat << 'EOF' > app/src/main/java/com/example/yusifapp/MainActivity.kt
-        package com.example.yusifapp
+        # DƏYİŞDİRİLDİ: Qovluq və Paket adı uyunlaşdırıldı
+        cat << 'EOF' > app/src/main/java/az/yusif/app/MainActivity.kt
+        package az.yusif.app
         
         import android.Manifest
         import android.content.pm.PackageManager
@@ -335,7 +338,7 @@ jobs:
             override fun onCreate(savedInstanceState: Bundle?) {
                 super.onCreate(savedInstanceState)
                 
-                checkLocationPermission() // Proqram açılanda məkan icazəsini istəyir
+                checkLocationPermission()
                 
                 OneSignal.setLogLevel(OneSignal.LOG_LEVEL.VERBOSE, OneSignal.LOG_LEVEL.NONE)
                 OneSignal.initWithContext(this)
@@ -364,7 +367,6 @@ jobs:
                 webView.settings.allowFileAccess = true
                 webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 
-                // Məkan aktiv edilir
                 webView.settings.setGeolocationEnabled(true)
                 
                 webView.settings.setSupportMultipleWindows(true)
